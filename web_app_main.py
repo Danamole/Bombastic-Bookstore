@@ -415,6 +415,50 @@ def search():
 def index():
     return render_template('home.html')
 
+# Function to fetch filtered inventory from the database
+def fetch_filtered_inventory(filters):
+    conn = sqlite3.connect('books.db')
+    cursor = conn.cursor()
+
+    query = "SELECT DISTINCT * FROM books WHERE 1=1"
+    params = []
+
+    # Construct the SQL query based on the provided filters
+    if 'title' in filters:
+        query += " AND title LIKE ?"
+        params.append('%' + filters['title'] + '%')
+
+    if 'category' in filters:
+        query += " AND category = ?"
+        params.append(filters['category'])
+
+    if 'genre' in filters:
+        query += " AND genre = ?"
+        params.append(filters['genre'])
+
+    if 'author' in filters:
+        query += " AND author LIKE ?"
+        params.append('%' + filters['author'] + '%')
+
+    if 'publisher' in filters:
+        query += " AND publisher LIKE ?"
+        params.append('%' + filters['publisher'] + '%')
+
+    if 'price' in filters:
+        query += " AND price <= ?"
+        params.append(filters['price'])
+
+    cursor.execute(query, params)
+    result = cursor.fetchall()
+
+    conn.close()
+    return result
+
+@app.route('/filter_inventory', methods=['POST'])
+def filter_inventory():
+    data = request.json
+    filtered_inventory = fetch_filtered_inventory(data)
+    return jsonify(filtered_inventory)
 
 if __name__ == "__main__":
     app.run(debug=True)
