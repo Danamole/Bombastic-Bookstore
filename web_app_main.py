@@ -434,32 +434,6 @@ def get_db_connection():
     return conn
 
 
-# Search Request
-@app.route('/search')
-def search():
-    query = request.args.get('query')
-    search_type = request.args.get('search_type')
-
-    if not query or not search_type:
-        return render_template('SearchPage.html')
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    # Can add more variables to the search bar here
-    if search_type == 'title':
-        cursor.execute("SELECT * FROM books WHERE Title LIKE ?", ('%' + query + '%',))
-    elif search_type == 'author':
-        cursor.execute("SELECT Title FROM books WHERE Author LIKE ?", ('%' + query + '%',))
-    elif search_type == 'genre':
-        cursor.execute("SELECT Title FROM books WHERE Genre LIKE ?", ('%' + query + '%',))
-
-    results = cursor.fetchall()
-
-    conn.close()
-
-    # may need to change to redirect to inventory page
-    return render_template('SearchResults.html', results=results, search_query=query)
-
 #Search Request
 @app.route('/search')
 def search():
