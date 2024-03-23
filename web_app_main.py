@@ -41,6 +41,40 @@ chart_cache = {}
 Session(app)
 
 
+'''
+This checks for all of the image if no image is presented then it will
+load the no image
+
+How the HTML will look when implementing
+{% set cover_url = 'https://covers.openlibrary.org/b/title/' + book[0] + '-L.jpg' %}
+{% if cover_url is defined %}
+    {% if url_exists(cover_url) %}
+        <img src="{{ cover_url }}" alt="Book Cover" style="min-width: 100px; min-height: 150px;">
+    {% else %}
+        <img src="../static/images/coverNotFound.png" alt="Book Cover" style="min-width: 100px; min-height: 150px;">
+    {% endif %}
+{% else %}
+    <img src="../static/images/coverNotFound.png" alt="Book Cover" style="min-width: 100px; min-height: 150px;">
+{% endif %}
+
+from requests.exceptions import ConnectionError
+
+def url_exists(url):
+    try:
+        response = requests.get(url, stream=True)  # Shorter timeout set to 1 second
+        if response.status_code == 200:
+            content_type = response.headers.get('content-type')
+            if content_type is not None and content_type.startswith('image/'):
+                return True
+        return False
+    except ConnectionError:
+        return False
+# Add the url_exists function to the Jinja2 environment
+app.jinja_env.globals['url_exists'] = url_exists
+
+'''
+
+
 # This function gives us the current "home" page
 # This starter version runs locally, and the web browser URL is "http://127.0.0.1:5000/"
 @app.route("/")
@@ -50,7 +84,7 @@ def home():
     cursor = conn.cursor()
 
     # limiting query to just 25 for home page
-    cursor.execute("SELECT title, author, isbn, price FROM books LIMIT 9")
+    cursor.execute("SELECT title, author, isbn, price, quantity FROM books LIMIT 9")
     books_data = cursor.fetchall()
 
     # Close the database connection
@@ -89,7 +123,7 @@ def display(page):
     # Connect to database and execute query
     conn = sqlite3.connect('books.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT title, author, isbn, price FROM books LIMIT ? OFFSET ?", (page_size, offset))
+    cursor.execute("SELECT title, author, isbn, price, quantity FROM books LIMIT ? OFFSET ?", (page_size, offset))
     books_data = cursor.fetchall()
     conn.close()
 
@@ -276,6 +310,7 @@ def cart():
     # Render the cart page with the cart data
     return render_template('cart.html', cart=cart_details)
 
+
 # Checkout
 @app.route('/checkout')
 def checkout():
@@ -333,6 +368,7 @@ def process_payment():
 
     return jsonify({"passOrFail": passOrFail})
 
+
 # Receipt Route
 @app.route('/receipt', methods=['POST'])
 def receipt():
@@ -386,6 +422,43 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+# Search Functions
+# Configuration
+app.config['search'] = 'search'
+
+
+# SQLite Database Connection
+def get_db_connection():
+    conn = sqlite3.connect('books.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+# Search Request
+@app.route('/search')
+def search():
+    query = request.args.get('query')
+    search_type = request.args.get('search_type')
+
+    if not query or not search_type:
+        return render_template('SearchPage.html')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # Can add more variables to the search bar here
+    if search_type == 'title':
+        cursor.execute("SELECT * FROM books WHERE Title LIKE ?", ('%' + query + '%',))
+    elif search_type == 'author':
+        cursor.execute("SELECT Title FROM books WHERE Author LIKE ?", ('%' + query + '%',))
+    elif search_type == 'genre':
+        cursor.execute("SELECT Title FROM books WHERE Genre LIKE ?", ('%' + query + '%',))
+
+    results = cursor.fetchall()
+
+    conn.close()
+
+    # may need to change to redirect to inventory page
+    return render_template('SearchResults.html', results=results, search_query=query)
 
 #Search Request
 @app.route('/search')
